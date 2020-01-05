@@ -1,0 +1,65 @@
+version: '3.7'
+
+# use ocker stack deploy instead of docker-compose up -d
+# to enable ressource limitations
+
+x-deployment-config:
+  &container-limits
+  resources:
+    limits:
+      cpus: '1.00'
+  #    memory: 20M
+    reservations:
+      cpus: '0.50'
+  #    memory: 20M
+
+networks:
+  elastic_search:
+
+x-logging:
+  &my-logging
+  options:
+    max-size: '5m'
+    max-file: '5'
+
+volumes:
+  hadoop:
+    driver_opts:
+      type: local
+      device: ../hadoop-2.7.1:/root/hadoop
+  spark:
+    driver_opts:
+      type: local
+      device: ../spark-2.4.3-bin-hadoop2.7:/root/spark
+
+services:
+  master:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    image: server
+    deploy: *container-limits
+    ports:
+      - 50070:50070
+      - 8080:8080
+    volumes:
+      - hadoop
+      - spark
+      - ../appli:/root/appli
+    networks:
+      - elastic_search
+    logging: *my-logging
+
+  slave:
+    build: ./server
+    image: server
+    deploy:
+      << : *container-limits
+      mode: replicated
+      replicas: 2
+    volumes:
+      - hadoop
+      - spark
+    networks:
+      - elastic_search
+    logging: *my-logging
